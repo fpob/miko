@@ -1,0 +1,32 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - '**'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  cargo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - run: cargo build
+      - run: cargo test
+      - run: cargo clippy
+      - run: cargo fmt --check
+
+  nix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v30
+
+      - run: nix build -L
