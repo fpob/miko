@@ -13,7 +13,7 @@ pub fn file_ed2k<P: AsRef<Path>>(path: P) -> anyhow::Result<String> {
     let mut reader = BufReader::new(file);
 
     let mut hasher = Ed2kRed::new();
-    let mut buffer = [0; 4096];
+    let mut buffer = [0; 8192];
     loop {
         let n = reader.read(&mut buffer)?;
         if n == 0 {
