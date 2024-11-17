@@ -100,16 +100,19 @@ impl Client {
         String::from_utf8(buf).map_err(|_| Error::Anyhow(anyhow!("Failed to decode response")))
     }
 
-    pub fn command(&self, command: &str) -> RequestBuilder {
+    pub fn command<'a, 'b>(&'a self, command: &'b str) -> RequestBuilder<'a, 'b> {
         RequestBuilder::new(self, command)
     }
 
-    fn send_request(&self, mut request: Request) -> Result<Response, Error> {
-        match request.command.as_str() {
+    fn send_request<'a, 'b>(&'a self, mut request: Request<'b>) -> Result<Response, Error>
+    where
+        'a: 'b,
+    {
+        match request.command {
             "PING" | "ENCODING" | "ENCRYPT" | "AUTH" | "VERSION" => {}
             _ => {
                 if let Some(s) = &self.session_key {
-                    request.params.push(("s".to_string(), s.to_string()));
+                    request.params.push(("s", s));
                 }
             }
         }
@@ -216,26 +219,27 @@ impl Drop for Client {
     }
 }
 
-pub(crate) struct RequestBuilder<'a> {
-    client: &'a Client,
-    request: Request,
+pub(crate) struct RequestBuilder<'client, 'request>
+where
+    'client: 'request,
+{
+    client: &'client Client,
+    request: Request<'request>,
 }
 
-impl<'a> RequestBuilder<'a> {
-    fn new(client: &'a Client, command: &str) -> Self {
+impl<'client, 'request> RequestBuilder<'client, 'request> {
+    fn new(client: &'client Client, command: &'request str) -> Self {
         Self {
             client,
             request: Request {
-                command: command.to_string(),
+                command,
                 params: vec![],
             },
         }
     }
 
-    pub fn param(mut self, key: &str, value: &str) -> Self {
-        self.request
-            .params
-            .push((key.to_string(), value.to_string()));
+    pub fn param(mut self, key: &'request str, value: &'request str) -> Self {
+        self.request.params.push((key, value));
         self
     }
 
@@ -245,12 +249,12 @@ impl<'a> RequestBuilder<'a> {
 }
 
 #[derive(Debug)]
-pub(crate) struct Request {
-    pub command: String,
-    pub params: Vec<(String, String)>,
+pub(crate) struct Request<'a> {
+    pub command: &'a str,
+    pub params: Vec<(&'a str, &'a str)>,
 }
 
-impl From<Request> for String {
+impl From<Request<'_>> for String {
     fn from(request: Request) -> String {
         let command = request.command.to_uppercase();
         let params = request
@@ -366,8 +370,8 @@ mod tests {
     #[test]
     fn command_formatting() {
         let r = Request {
-            command: "EXAMPLE".to_string(),
-            params: vec![("foo".to_string(), "bar".to_string())],
+            command: "EXAMPLE",
+            params: vec![("foo", "bar")],
         };
         let rs: String = r.into();
         assert_eq!(rs, "EXAMPLE foo=bar");
