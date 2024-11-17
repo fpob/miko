@@ -10,6 +10,7 @@ use block_padding::{Padding, Pkcs7};
 use flate2::read::ZlibDecoder;
 use itertools::{Itertools, Position};
 use std::{
+    borrow::Cow,
     cell::RefCell,
     fmt::{self, Display},
     io::{self, Read},
@@ -60,11 +61,13 @@ impl Client {
     }
 
     fn send(&self, data: &str) -> Result<(), Error> {
-        let mut buf = data.as_bytes().to_vec();
+        let data = data.as_bytes();
 
-        if let Some(encrypt_key) = self.encrypt_key {
-            buf = encrypt(&buf, &encrypt_key);
-        }
+        let buf = if let Some(encrypt_key) = self.encrypt_key {
+            Cow::Owned(encrypt(data, &encrypt_key))
+        } else {
+            Cow::Borrowed(data)
+        };
 
         *self.packet_count.borrow_mut() += 1;
         if *self.packet_count.borrow() > 5 {
@@ -84,10 +87,10 @@ impl Client {
     }
 
     fn recv(&self) -> Result<String, Error> {
-        let mut buf = [0; 1400];
+        let mut buf = vec![0; 1400];
 
         let received_bytes = self.socket.recv(&mut buf)?;
-        let mut buf = buf[..received_bytes].to_vec();
+        buf.truncate(received_bytes);
 
         if let Some(encrypt_key) = self.encrypt_key {
             buf = decrypt(&buf, &encrypt_key);
