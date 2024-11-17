@@ -96,7 +96,7 @@ impl Client {
             buf = decrypt(&buf, &encrypt_key);
         }
 
-        if buf[0] == 0 && buf[1] == 0 {
+        if buf.len() >= 2 && buf[0] == 0 && buf[1] == 0 {
             buf = decompress(&buf)?;
         }
 
