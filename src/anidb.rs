@@ -3,12 +3,12 @@ use aes::{
         generic_array::{typenum::U16, GenericArray},
         BlockDecrypt, BlockEncrypt, KeyInit,
     },
-    Aes128,
+    Aes128Dec, Aes128Enc,
 };
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 use block_padding::{Padding, Pkcs7};
 use flate2::read::ZlibDecoder;
-use itertools::{Itertools, Position};
+use itertools::Itertools;
 use std::{
     borrow::Cow,
     cell::RefCell,
@@ -93,7 +93,7 @@ impl Client {
         buf.truncate(received_bytes);
 
         if let Some(encrypt_key) = self.encrypt_key {
-            buf = decrypt(&buf, &encrypt_key);
+            buf = decrypt(&buf, &encrypt_key)?;
         }
 
         if buf.len() >= 2 && buf[0] == 0 && buf[1] == 0 {
@@ -305,59 +305,47 @@ impl TryFrom<&str> for Response {
 }
 
 fn encrypt(buf: &[u8], key: &[u8; 16]) -> Vec<u8> {
-    let key = GenericArray::from(*key);
-    let cipher = Aes128::new(&key);
+    let key = GenericArray::from_slice(key);
+    let cipher = Aes128Enc::new(key);
 
-    let mut blocks: Vec<_> = (0..buf.len())
-        .step_by(16)
-        .map(|start| {
-            let end = (start + 16).min(buf.len());
-            let length = end - start;
-
-            let mut block: GenericArray<u8, U16> = [0x00; 16].into();
-            block[..length].copy_from_slice(&buf[start..end]);
-            if length < 16 {
-                Pkcs7::pad(&mut block, length);
+    let mut blocks: Vec<_> = buf
+        .chunks(16)
+        .map(|chunk| {
+            if chunk.len() == 16 {
+                *GenericArray::from_slice(chunk)
+            } else {
+                let mut block: GenericArray<_, U16> = GenericArray::default();
+                block[..chunk.len()].copy_from_slice(chunk);
+                Pkcs7::pad(&mut block, chunk.len());
+                block
             }
-            block
         })
         .collect();
 
     cipher.encrypt_blocks(&mut blocks);
 
-    blocks.iter().flatten().copied().collect()
+    blocks.into_iter().flatten().collect()
 }
 
-fn decrypt(buf: &[u8], key: &[u8; 16]) -> Vec<u8> {
-    let key = GenericArray::from(*key);
-    let cipher = Aes128::new(&key);
+fn decrypt(buf: &[u8], key: &[u8; 16]) -> anyhow::Result<Vec<u8>> {
+    if buf.len() % 16 != 0 {
+        bail!("failed to decrypt");
+    }
 
-    let mut blocks: Vec<_> = (0..buf.len())
-        .step_by(16)
-        .map(|start| {
-            let end = (start + 16).min(buf.len());
-            let length = end - start;
+    let key = GenericArray::from_slice(key);
+    let cipher = Aes128Dec::new(key);
 
-            let mut block: GenericArray<u8, U16> = [0x00; 16].into();
-            block[..length].copy_from_slice(&buf[start..end]);
-            block
-        })
+    let mut blocks: Vec<_> = buf
+        .chunks(16)
+        .map(GenericArray::from_slice)
+        .cloned()
         .collect();
 
     cipher.decrypt_blocks(&mut blocks);
 
-    blocks
-        .iter()
-        .with_position()
-        .flat_map(|(pos, block)| {
-            if let Position::Last | Position::Only = pos {
-                Pkcs7::unpad(block).unwrap()
-            } else {
-                &block[..]
-            }
-        })
-        .copied()
-        .collect()
+    Ok(Pkcs7::unpad_blocks(&blocks)
+        .map_err(|_| anyhow!("failed to decrypt"))?
+        .to_vec())
 }
 
 fn decompress(buf: &[u8]) -> anyhow::Result<Vec<u8>> {
@@ -404,8 +392,17 @@ mod tests {
         let encrypted_buf = encrypt(&buf, &key);
         assert_eq!(encrypted_buf, enc);
 
-        let decrypted_buf = decrypt(&encrypted_buf, &key);
+        let decrypted_buf = decrypt(&encrypted_buf, &key).unwrap();
         assert_eq!(decrypted_buf, buf);
+    }
+
+    #[test]
+    fn decrypt_junk() {
+        let key = md5::compute(b"foobar");
+        let enc = vec![1, 2, 3, 4];
+
+        let res = decrypt(&enc, &key);
+        assert!(res.is_err());
     }
 
     #[test]
@@ -427,7 +424,7 @@ mod tests {
         let encrypted_buf = encrypt(&buf, &key);
         assert_eq!(encrypted_buf, enc);
 
-        let decrypted_buf = decrypt(&encrypted_buf, &key);
+        let decrypted_buf = decrypt(&encrypted_buf, &key).unwrap();
         assert_eq!(decrypted_buf, buf);
     }
 
