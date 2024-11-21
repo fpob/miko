@@ -11,6 +11,7 @@ anyhow = "1.0.86"
 block-padding = "0.3.3"
 chrono = "0.4.38"
 clap = { version = "4.5.4", features = ["cargo", "derive", "env", "wrap_help"] }
+clap_complete = "4.5.38"
 colored = "2.1.0"
 confy = "0.6.1"
 ed2k = "1.0.1"

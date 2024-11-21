@@ -49,6 +49,15 @@
                 );
               };
             cargoLock.lockFile = ./Cargo.lock;
+            nativeBuildInputs = [
+              pkgs.installShellFiles
+            ];
+            postInstall = ''
+              installShellCompletion --cmd miko \
+                --bash <(_MIKO_GENERATE_COMPLETION=bash $out/bin/miko _) \
+                --zsh <(_MIKO_GENERATE_COMPLETION=zsh $out/bin/miko _) \
+                --fish <(_MIKO_GENERATE_COMPLETION=fish $out/bin/miko _)
+            '';
           };
         };
 

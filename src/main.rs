@@ -1,14 +1,19 @@
 #![doc = include_str!("../README.md")]
 
-use clap::Parser;
+use clap::{Command, CommandFactory, Parser, ValueHint};
+use clap_complete::{generate, Generator, Shell};
 use colored::Colorize;
 use inquire::{Password, Text};
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-use std::sync::mpsc;
-use std::thread;
-use std::{collections::HashMap, fs, path::Path};
+use std::{
+    collections::HashMap,
+    env, fs, io,
+    path::{Path, PathBuf},
+    str::FromStr,
+    sync::mpsc,
+    thread,
+};
 
 mod anidb;
 mod utils;
@@ -81,7 +86,7 @@ struct Cli {
     )]
     rename_format: Option<String>,
     /// Files to add to mylist.
-    #[clap(required = true)]
+    #[clap(required = true, value_hint = ValueHint::FilePath)]
     files: Vec<String>,
 }
 
@@ -126,7 +131,18 @@ const FILE_KEYS: &[&str] = &[
     "gsname",
 ];
 
+fn print_completions<G: Generator>(gen: G, cmd: &mut Command) {
+    generate(gen, cmd, cmd.get_name().to_string(), &mut io::stdout());
+}
+
 fn main() -> anyhow::Result<()> {
+    if let Ok(shell) = env::var("_MIKO_GENERATE_COMPLETION") {
+        let shell = Shell::from_str(&shell).expect("supported shell");
+        let mut cmd = Cli::command();
+        print_completions(shell, &mut cmd);
+        return Ok(());
+    }
+
     let args = Cli::parse();
     let config = Config::load(args.config)?;
 
