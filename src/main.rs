@@ -6,14 +6,7 @@ use colored::Colorize;
 use inquire::{Password, Text};
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    env, fs, io,
-    path::{Path, PathBuf},
-    str::FromStr,
-    sync::mpsc,
-    thread,
-};
+use std::{collections::HashMap, env, fs, io, path::PathBuf, str::FromStr, sync::mpsc, thread};
 
 mod anidb;
 mod utils;
@@ -87,7 +80,7 @@ struct Cli {
     rename_format: Option<String>,
     /// Files to add to mylist.
     #[clap(required = true, value_hint = ValueHint::FilePath)]
-    files: Vec<String>,
+    files: Vec<PathBuf>,
 }
 
 #[derive(Serialize, Deserialize, Default, Debug)]
@@ -185,15 +178,14 @@ fn main() -> anyhow::Result<()> {
     let (files_tx, files_rx) = mpsc::channel();
     thread::spawn(move || {
         for file in args.files {
-            let path = Path::new(&file).to_owned();
-            let size = fs::metadata(&path).map(|x| x.len());
-            let hash = utils::file_ed2k(&path);
-            let _ = files_tx.send((file, path, size, hash));
+            let size = fs::metadata(&file).map(|x| x.len());
+            let hash = utils::file_ed2k(&file);
+            let _ = files_tx.send((file, size, hash));
         }
     });
 
-    for (file_name, file_path, file_size, file_hash) in files_rx {
-        println!("{}", file_name.bold());
+    for (file_path, file_size, file_hash) in files_rx {
+        println!("{}", file_path.to_string_lossy().bold());
 
         let (Ok(file_size), Ok(file_hash)) = (file_size, file_hash) else {
             println!("  - failed to get file info, skipping");
