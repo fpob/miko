@@ -322,6 +322,12 @@ fn encrypt(buf: &[u8], key: &[u8; 16]) -> Vec<u8> {
         })
         .collect();
 
+    if buf.len() % 16 == 0 {
+        let mut block: GenericArray<_, U16> = GenericArray::default();
+        Pkcs7::pad(&mut block, 0);
+        blocks.push(block);
+    }
+
     cipher.encrypt_blocks(&mut blocks);
 
     blocks.into_iter().flatten().collect()
@@ -387,6 +393,22 @@ mod tests {
         let buf = b"foobar".to_vec();
         let enc = vec![
             112, 119, 170, 204, 153, 143, 147, 241, 239, 97, 27, 192, 67, 5, 91, 68,
+        ];
+
+        let encrypted_buf = encrypt(&buf, &key);
+        assert_eq!(encrypted_buf, enc);
+
+        let decrypted_buf = decrypt(&encrypted_buf, &key).unwrap();
+        assert_eq!(decrypted_buf, buf);
+    }
+
+    #[test]
+    fn encrypt_decrypt_block() {
+        let key = md5::compute(b"foobar");
+        let buf = b"0123456789abcdef".to_vec();
+        let enc = vec![
+            70, 51, 33, 11, 196, 30, 222, 88, 140, 186, 210, 153, 51, 162, 107, 179, 223, 3, 131,
+            121, 70, 112, 101, 16, 154, 76, 2, 69, 125, 242, 102, 152,
         ];
 
         let encrypted_buf = encrypt(&buf, &key);
