@@ -60,11 +60,15 @@ pub fn timestamp_from_date(date: &str) -> anyhow::Result<i64> {
 /// Change file_stem in a Path.
 pub fn change_file_stem<P: AsRef<Path>>(path: P, stem: &str) -> PathBuf {
     let file = path.as_ref();
+
+    let suffix = if let Some(ext) = file.extension() {
+        format!(".{}", ext.to_string_lossy())
+    } else {
+        "".to_string()
+    };
+
     let mut new = file.to_owned();
-    new.set_file_name(stem);
-    if let Some(ext) = file.extension() {
-        new.set_extension(ext);
-    }
+    new.set_file_name(format!("{}{}", stem, suffix));
     new
 }
 
@@ -109,6 +113,14 @@ mod tests {
         assert_eq!(
             change_file_stem(&PathBuf::from("/foo/bar.tar"), "xyz"),
             PathBuf::from("/foo/xyz.tar")
+        )
+    }
+
+    #[test]
+    fn change_file_stem_with_dot() {
+        assert_eq!(
+            change_file_stem(&PathBuf::from("/foo/bar.tar"), "xyz.abc"),
+            PathBuf::from("/foo/xyz.abc.tar")
         )
     }
 }
