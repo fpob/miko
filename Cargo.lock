@@ -616,7 +616,6 @@ dependencies = [
  "flate2",
  "inquire",
  "itertools",
- "lazy_static",
  "md5",
  "regex",
  "serde",

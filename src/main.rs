@@ -4,9 +4,15 @@ use clap::{Command, CommandFactory, Parser, ValueHint};
 use clap_complete::{generate, Generator, Shell};
 use colored::Colorize;
 use inquire::{Password, Text};
-use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, env, fs, io, path::PathBuf, str::FromStr, sync::mpsc, thread};
+use std::{
+    collections::HashMap,
+    env, fs, io,
+    path::PathBuf,
+    str::FromStr,
+    sync::{mpsc, LazyLock},
+    thread,
+};
 
 mod anidb;
 mod utils;
@@ -14,11 +20,10 @@ mod utils;
 const DEFAULT_CONFIG_NAME: &str = "config";
 const DEFAULT_RENAME_FORMAT: &str = "$aname - $epno";
 
-lazy_static! {
-    static ref DEFAULT_CONFIG_PATH: PathBuf =
-        confy::get_configuration_file_path(clap::crate_name!(), DEFAULT_CONFIG_NAME)
-            .expect("got the default config path");
-}
+static DEFAULT_CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
+    confy::get_configuration_file_path(clap::crate_name!(), DEFAULT_CONFIG_NAME)
+        .expect("got the default config path")
+});
 
 #[derive(Parser)]
 #[command(max_term_width = 100)]
@@ -93,7 +98,7 @@ struct Config {
 
 impl Config {
     fn load(path: Option<PathBuf>) -> anyhow::Result<Self> {
-        let path = path.as_ref().unwrap_or(&DEFAULT_CONFIG_PATH);
+        let path = path.as_ref().unwrap_or(&*DEFAULT_CONFIG_PATH);
         confy::load_path(path).map_err(|e| anyhow::anyhow!(format!("Failed to load config, {e}")))
     }
 }
