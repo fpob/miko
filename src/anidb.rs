@@ -11,7 +11,7 @@ use flate2::read::ZlibDecoder;
 use itertools::Itertools;
 use std::{
     borrow::Cow,
-    cell::RefCell,
+    cell::Cell,
     fmt::{self, Display},
     io::{self, Read},
     net::UdpSocket,
@@ -43,8 +43,8 @@ impl Display for Error {
 
 pub(crate) struct Client {
     socket: UdpSocket,
-    packet_count: RefCell<usize>,
-    packet_last_send: RefCell<Instant>,
+    packet_count: Cell<usize>,
+    packet_last_send: Cell<Instant>,
     session_key: Option<String>,
     encrypt_key: Option<[u8; 16]>,
 }
@@ -69,10 +69,10 @@ impl Client {
             Cow::Borrowed(data)
         };
 
-        *self.packet_count.borrow_mut() += 1;
-        if *self.packet_count.borrow() > 5 {
+        self.packet_count.set(self.packet_count.get() + 1);
+        if self.packet_count.get() > 5 {
             let delay =
-                Duration::from_secs(2).saturating_sub((*self.packet_last_send.borrow()).elapsed());
+                Duration::from_secs(2).saturating_sub(self.packet_last_send.get().elapsed());
             sleep(delay);
         }
 
@@ -81,7 +81,7 @@ impl Client {
             .send_to(&buf, ANIDB_API_ADDR)
             .map_err(Error::Socket);
 
-        *self.packet_last_send.borrow_mut() = Instant::now();
+        self.packet_last_send.set(Instant::now());
 
         result.and(Ok(()))
     }
