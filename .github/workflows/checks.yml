@@ -1,0 +1,20 @@
+name: Checks
+
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v30
+
+      - run: nix build -L
+      - run: nix develop --command cargo clippy
+      - run: nix develop --command cargo fmt --check
