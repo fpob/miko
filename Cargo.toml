@@ -3,7 +3,7 @@ name = "miko"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-authors = ["Filip Pobořil"]
+authors = ["Filip Pobořil <dev@fpob.cz>"]
 
 [dependencies]
 aes = "0.8.4"
