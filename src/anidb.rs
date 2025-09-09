@@ -115,7 +115,7 @@ impl Client {
         }
 
         let response = {
-            let raw_request: String = request.into();
+            let raw_request = request.to_api_string();
             self.send(&raw_request)?;
 
             let raw_response = self.recv()?;
@@ -251,10 +251,10 @@ pub(crate) struct Request<'a> {
     pub params: Vec<(&'a str, &'a str)>,
 }
 
-impl From<Request<'_>> for String {
-    fn from(request: Request) -> String {
-        let command = request.command.to_uppercase();
-        let params = request
+impl Request<'_> {
+    pub fn to_api_string(&self) -> String {
+        let command = self.command.to_uppercase();
+        let params = self
             .params
             .iter()
             .map(|(k, v)| format!("{}={}", k, v.replace('&', "&amp;")))
@@ -372,14 +372,14 @@ mod tests {
             command: "EXAMPLE",
             params: vec![("foo", "bar")],
         };
-        let rs: String = r.into();
+        let rs = r.to_api_string();
         assert_eq!(rs, "EXAMPLE foo=bar");
     }
 
     #[test]
     fn response_parsing() {
         let r = Response::parse("210 MYLIST ENTRY ADDED\n1234");
-        assert!(r.is_some());
+        assert!(r.is_ok());
 
         let r = r.unwrap();
         assert_eq!(r.code, 210);
