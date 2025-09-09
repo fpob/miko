@@ -12,7 +12,7 @@ use itertools::Itertools;
 use std::{
     borrow::Cow,
     cell::Cell,
-    fmt::{self, Display},
+    fmt,
     io::{self, Read},
     net::UdpSocket,
     thread::sleep,
@@ -25,20 +25,14 @@ const CLIENT_VERSION: &str = "1";
 
 #[derive(thiserror::Error, Debug)]
 pub(crate) enum Error {
+    #[error("{0}")]
     Anyhow(#[from] anyhow::Error),
+    #[error("Failed to connect to the AniDB API")]
     Socket(#[from] io::Error),
+    #[error("{0}")]
     Server(Response),
+    #[error("{0}")]
     Client(Response),
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Server(response) | Self::Client(response) => write!(f, "{}", response.message),
-            Self::Socket(_) => write!(f, "Failed to connect to the AniDB API"),
-            Self::Anyhow(e) => write!(f, "{}", e),
-        }
-    }
 }
 
 pub(crate) struct Client {
@@ -293,6 +287,12 @@ impl Response {
             message,
             data,
         })
+    }
+}
+
+impl fmt::Display for Response {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.message.to_lowercase())
     }
 }
 
