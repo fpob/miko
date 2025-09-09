@@ -275,16 +275,16 @@ impl Response {
         let mut lines = data.split('\n');
 
         let mut status_line = lines
-            .nth(0)
+            .next()
             .ok_or(anyhow::anyhow!("missing status line in the response"))?
             .splitn(2, ' ');
         let code = status_line
-            .nth(0)
+            .next()
             .ok_or(anyhow::anyhow!("missing code in the response"))?
             .parse()
             .map_err(|_| anyhow::anyhow!("invalid reponse code"))?;
         let message = status_line
-            .nth(0)
+            .next()
             .ok_or(anyhow::anyhow!("missing message in the response"))?
             .to_owned();
 
