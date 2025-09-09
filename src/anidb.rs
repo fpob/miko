@@ -119,7 +119,7 @@ impl Client {
             self.send(&raw_request)?;
 
             let raw_response = self.recv()?;
-            Response::try_from(raw_response.as_str())?
+            Response::parse(raw_response.as_str())?
         };
 
         match response.code {
@@ -271,18 +271,28 @@ pub(crate) struct Response {
 }
 
 impl Response {
-    fn parse(data: &str) -> Option<Self> {
+    fn parse(data: &str) -> Result<Self, Error> {
         let mut lines = data.split('\n');
 
-        let mut status_line = lines.nth(0)?.splitn(2, ' ');
-        let code = status_line.nth(0)?.parse().ok()?;
-        let message = status_line.nth(0)?.to_owned();
+        let mut status_line = lines
+            .nth(0)
+            .ok_or(anyhow::anyhow!("missing status line in the response"))?
+            .splitn(2, ' ');
+        let code = status_line
+            .nth(0)
+            .ok_or(anyhow::anyhow!("missing code in the response"))?
+            .parse()
+            .map_err(|_| anyhow::anyhow!("invalid reponse code"))?;
+        let message = status_line
+            .nth(0)
+            .ok_or(anyhow::anyhow!("missing message in the response"))?
+            .to_owned();
 
         let data: Vec<Vec<_>> = lines
             .map(|l| l.split('|').map(|i| i.replace("<br />", "\n")).collect())
             .collect();
 
-        Some(Self {
+        Ok(Self {
             code,
             message,
             data,
@@ -293,14 +303,6 @@ impl Response {
 impl fmt::Display for Response {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.message.to_lowercase())
-    }
-}
-
-impl TryFrom<&str> for Response {
-    type Error = anyhow::Error;
-
-    fn try_from(s: &str) -> anyhow::Result<Self> {
-        Self::parse(s).ok_or(anyhow!("Failed to parse response"))
     }
 }
 
