@@ -22,7 +22,7 @@
             pkgs.cargo
             pkgs.cargo-audit
             pkgs.clippy
-            pkgs.gcc
+            pkgs.rust-analyzer
             pkgs.rustc
             pkgs.rustfmt
           ];
