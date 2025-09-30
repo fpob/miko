@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+use anyhow::anyhow;
 use clap::{Command, CommandFactory, Parser, ValueHint};
 use clap_complete::{generate, Generator, Shell};
 use colored::Colorize;
@@ -99,7 +100,7 @@ struct Config {
 impl Config {
     fn load(path: Option<PathBuf>) -> anyhow::Result<Self> {
         let path = path.as_ref().unwrap_or(&*DEFAULT_CONFIG_PATH);
-        confy::load_path(path).map_err(|e| anyhow::anyhow!(format!("Failed to load config, {e}")))
+        confy::load_path(path).map_err(|e| anyhow!("Failed to load config, {e}"))
     }
 }
 
@@ -148,7 +149,7 @@ fn main() -> anyhow::Result<()> {
         .username
         .or(config.username)
         .or_else(|| Text::new("Username").prompt().ok())
-        .ok_or(anyhow::anyhow!("Username not provided"))?;
+        .ok_or(anyhow!("Username not provided"))?;
 
     let password = args
         .password
@@ -159,7 +160,7 @@ fn main() -> anyhow::Result<()> {
                 .prompt()
                 .ok()
         })
-        .ok_or(anyhow::anyhow!("Password not provided"))?;
+        .ok_or(anyhow!("Password not provided"))?;
 
     let watched_timestamp = if let Some(date) = &args.watched_date {
         utils::timestamp_from_date(date)?
@@ -230,7 +231,8 @@ fn main() -> anyhow::Result<()> {
             .collect();
 
         let Ok(file_name_new) = subst::substitute(&rename_format, &file_vars) else {
-            anyhow::bail!("Failed to format file name");
+            println!("  - failed to format file name, invalid rename format");
+            continue;
         };
 
         let file_path_new =

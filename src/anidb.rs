@@ -25,10 +25,10 @@ const CLIENT_VERSION: &str = "1";
 
 #[derive(thiserror::Error, Debug)]
 pub(crate) enum Error {
-    #[error("{0}")]
-    Anyhow(#[from] anyhow::Error),
-    #[error("Failed to connect to the AniDB API")]
-    Socket(#[from] io::Error),
+    #[error("failed to connect to the AniDB API")]
+    Connection(io::Error),
+    #[error("received invalid data")]
+    InvalidData,
     #[error("{0}")]
     Server(Response),
     #[error("{0}")]
@@ -46,7 +46,7 @@ pub(crate) struct Client {
 impl Client {
     pub fn new() -> Result<Self, Error> {
         Ok(Self {
-            socket: UdpSocket::bind(("0.0.0.0", 9900))?,
+            socket: UdpSocket::bind(("0.0.0.0", 9900)).map_err(Error::Connection)?,
             packet_count: 0.into(),
             packet_last_send: Instant::now().into(),
             session_key: None,
@@ -73,7 +73,7 @@ impl Client {
         let result = self
             .socket
             .send_to(&buf, ANIDB_API_ADDR)
-            .map_err(Error::Socket);
+            .map_err(Error::Connection);
 
         self.packet_last_send.set(Instant::now());
 
@@ -83,18 +83,18 @@ impl Client {
     fn recv(&self) -> Result<String, Error> {
         let mut buf = vec![0; 1400];
 
-        let received_bytes = self.socket.recv(&mut buf)?;
+        let received_bytes = self.socket.recv(&mut buf).map_err(Error::Connection)?;
         buf.truncate(received_bytes);
 
         if let Some(encrypt_key) = self.encrypt_key {
-            buf = decrypt(&buf, &encrypt_key)?;
+            buf = decrypt(&buf, &encrypt_key).map_err(|_| Error::InvalidData)?;
         }
 
         if buf.len() >= 2 && buf[0] == 0 && buf[1] == 0 {
-            buf = decompress(&buf)?;
+            buf = decompress(&buf).map_err(|_| Error::InvalidData)?;
         }
 
-        String::from_utf8(buf).map_err(|_| Error::Anyhow(anyhow!("Failed to decode response")))
+        String::from_utf8(buf).map_err(|_| Error::InvalidData)
     }
 
     pub fn command<'a, 'b>(&'a self, command: &'b str) -> RequestBuilder<'a, 'b> {
@@ -163,7 +163,7 @@ impl Client {
         let (session_key, message) = {
             let spl: Vec<_> = rv.message.splitn(2, ' ').collect();
             if spl.len() != 2 {
-                return Err(Error::Anyhow(anyhow!("Failed to obtain session key")));
+                return Err(Error::Client(rv));
             }
             (spl[0].to_owned(), spl[1].to_owned())
         };
@@ -196,7 +196,7 @@ impl Client {
         let (salt, message) = {
             let spl: Vec<_> = rv.message.splitn(2, ' ').collect();
             if spl.len() != 2 {
-                return Err(Error::Anyhow(anyhow!("Failed to obtain encrypt key")));
+                return Err(Error::Client(rv));
             }
             (spl[0].to_owned(), spl[1].to_owned())
         };
@@ -274,19 +274,13 @@ impl Response {
     fn parse(data: &str) -> Result<Self, Error> {
         let mut lines = data.split('\n');
 
-        let mut status_line = lines
-            .next()
-            .ok_or(anyhow::anyhow!("missing status line in the response"))?
-            .splitn(2, ' ');
+        let mut status_line = lines.next().ok_or(Error::InvalidData)?.splitn(2, ' ');
         let code = status_line
             .next()
-            .ok_or(anyhow::anyhow!("missing code in the response"))?
+            .ok_or(Error::InvalidData)?
             .parse()
-            .map_err(|_| anyhow::anyhow!("invalid reponse code"))?;
-        let message = status_line
-            .next()
-            .ok_or(anyhow::anyhow!("missing message in the response"))?
-            .to_owned();
+            .map_err(|_| Error::InvalidData)?;
+        let message = status_line.next().ok_or(Error::InvalidData)?.to_owned();
 
         let data: Vec<Vec<_>> = lines
             .map(|l| l.split('|').map(|i| i.replace("<br />", "\n")).collect())
