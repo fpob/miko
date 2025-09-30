@@ -2,7 +2,7 @@
 
 use anyhow::anyhow;
 use clap::{Command, CommandFactory, Parser, ValueHint};
-use clap_complete::{generate, Generator, Shell};
+use clap_complete::{Generator, Shell, generate};
 use colored::Colorize;
 use inquire::{Password, Text};
 use serde::{Deserialize, Serialize};
@@ -11,7 +11,7 @@ use std::{
     env, fs, io,
     path::PathBuf,
     str::FromStr,
-    sync::{mpsc, LazyLock},
+    sync::{LazyLock, mpsc},
     thread,
 };
 

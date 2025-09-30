@@ -1,7 +1,7 @@
 use anyhow::{anyhow, bail};
 use chrono::{Local, NaiveDate};
-use ed2k::digest::Digest;
 use ed2k::Ed2kRed;
+use ed2k::digest::Digest;
 use regex::Regex;
 use std::fs::{self, File};
 use std::io::{BufReader, Read};
