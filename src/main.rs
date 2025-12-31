@@ -172,6 +172,7 @@ fn main() -> anyhow::Result<()> {
     } else {
         utils::timestamp_now()
     };
+    let watched = args.watched || args.watched_date.is_some();
 
     let rename_format = args
         .rename_format
@@ -210,7 +211,7 @@ fn main() -> anyhow::Result<()> {
             .param("ed2k", &file_hash)
             .param("size", &file_size.to_string())
             .param("state", if args.deleted { "3" } else { "1" }) // 1 = internal storage (hdd)
-            .param("viewed", if args.watched { "1" } else { "0" })
+            .param("viewed", if watched { "1" } else { "0" })
             .param("viewdate", &watched_timestamp.to_string())
             .param("edit", if args.edit { "1" } else { "0" })
             .send()?;
