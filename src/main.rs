@@ -1,6 +1,6 @@
 #![doc = include_str!("../README.md")]
 
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 use clap::{Command, CommandFactory, Parser, ValueHint};
 use clap_complete::{Generator, Shell, generate};
 use colored::Colorize;
@@ -99,7 +99,13 @@ struct Config {
 
 impl Config {
     fn load(path: Option<PathBuf>) -> anyhow::Result<Self> {
-        let path = path.as_ref().unwrap_or(&*DEFAULT_CONFIG_PATH);
+        let path = match &path {
+            Some(path) if !path.exists() => {
+                bail!("Config file \"{}\" does't exist", path.to_string_lossy())
+            }
+            Some(path) => path,
+            None => &*DEFAULT_CONFIG_PATH,
+        };
         confy::load_path(path).map_err(|e| anyhow!("Failed to load config, {e}"))
     }
 }
