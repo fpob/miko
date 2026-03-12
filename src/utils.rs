@@ -2,7 +2,7 @@ use anyhow::{anyhow, bail};
 use chrono::{Local, NaiveDate};
 use ed2k::Ed2kRed;
 use ed2k::digest::Digest;
-use regex::Regex;
+use regex_macro::regex;
 use std::fs::{self, File};
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
@@ -31,9 +31,9 @@ pub fn sanitize_filename(filename: &str) -> String {
     // Replace all `/` with `-`
     let filename = filename.replace('/', "-");
     // Replace leading `.` with `_`.
-    let filename = Regex::new(r"^\.").unwrap().replace_all(&filename, "_");
+    let filename = regex!(r"^\.").replace_all(&filename, "_");
     // Replace multiple whitespaces with a single space.
-    let filename = Regex::new(r"\s+").unwrap().replace_all(&filename, " ");
+    let filename = regex!(r"\s+").replace_all(&filename, " ");
 
     filename.to_string()
 }
