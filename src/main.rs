@@ -136,6 +136,15 @@ const FILE_KEYS: &[&str] = &[
     "gsname",
 ];
 
+struct FileOptions<'a> {
+    watched: bool,
+    watched_timestamp: i64,
+    deleted: bool,
+    edit: bool,
+    rename: bool,
+    rename_format: &'a str,
+}
+
 fn print_completions<G: Generator>(generator: G, cmd: &mut Command) {
     generate(
         generator,
@@ -173,6 +182,8 @@ fn main() -> anyhow::Result<()> {
         })
         .ok_or(anyhow!("Password not provided"))?;
 
+    let encrypt_key = args.encrypt.or(config.encrypt);
+
     let watched_timestamp = if let Some(date) = &args.watched_date {
         utils::timestamp_from_date(date)?
     } else {
@@ -185,17 +196,46 @@ fn main() -> anyhow::Result<()> {
         .or(config.rename_format)
         .unwrap_or(DEFAULT_RENAME_FORMAT.into());
 
+    let client = create_client(&username, &password, encrypt_key.as_deref())?;
+
+    process_files(
+        &client,
+        args.files,
+        &FileOptions {
+            watched,
+            watched_timestamp,
+            deleted: args.deleted,
+            edit: args.edit,
+            rename: args.rename,
+            rename_format: &rename_format,
+        },
+    )
+}
+
+fn create_client(
+    username: &str,
+    password: &str,
+    encrypt_key: Option<&str>,
+) -> anyhow::Result<anidb::Client> {
     let mut client = anidb::Client::new()?;
 
-    if let Some(encrypt_key) = args.encrypt.or(config.encrypt) {
-        client.encrypt(&username, &encrypt_key)?;
+    if let Some(encrypt_key) = encrypt_key {
+        client.encrypt(username, encrypt_key)?;
     }
 
-    client.auth(&username, &password)?;
+    client.auth(username, password)?;
 
+    Ok(client)
+}
+
+fn process_files(
+    client: &anidb::Client,
+    files: Vec<PathBuf>,
+    options: &FileOptions,
+) -> anyhow::Result<()> {
     let (files_tx, files_rx) = mpsc::channel();
     thread::spawn(move || {
-        for file in args.files {
+        for file in files {
             let size = fs::metadata(&file).map(|x| x.len());
             let hash = utils::file_ed2k(&file);
             let _ = files_tx.send((file, size, hash));
@@ -216,15 +256,15 @@ fn main() -> anyhow::Result<()> {
             .command("MYLISTADD")
             .param("ed2k", &file_hash)
             .param("size", &file_size.to_string())
-            .param("state", if args.deleted { "3" } else { "1" }) // 1 = internal storage (hdd)
-            .param("viewed", if watched { "1" } else { "0" })
-            .param("viewdate", &watched_timestamp.to_string())
-            .param("edit", if args.edit { "1" } else { "0" })
+            .param("state", if options.deleted { "3" } else { "1" }) // 1 = internal storage (hdd)
+            .param("viewed", if options.watched { "1" } else { "0" })
+            .param("viewdate", &options.watched_timestamp.to_string())
+            .param("edit", if options.edit { "1" } else { "0" })
             .send()?;
 
         println!("  - {}", mylistadd_response.message.to_lowercase());
 
-        if !args.rename || mylistadd_response.code == 320 {
+        if !options.rename || mylistadd_response.code == 320 {
             continue;
         }
 
@@ -242,7 +282,7 @@ fn main() -> anyhow::Result<()> {
             .map(|(i, &key)| (key, file_response.data[0][i].as_str()))
             .collect();
 
-        let Ok(file_name_new) = subst::substitute(&rename_format, &file_vars) else {
+        let Ok(file_name_new) = subst::substitute(options.rename_format, &file_vars) else {
             println!("  - failed to format file name, invalid rename format");
             continue;
         };
