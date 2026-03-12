@@ -101,7 +101,7 @@ impl Config {
     fn load(path: Option<PathBuf>) -> anyhow::Result<Self> {
         let path = match &path {
             Some(path) if !path.exists() => {
-                bail!("Config file \"{}\" does't exist", path.to_string_lossy())
+                bail!("Config file \"{}\" doesn't exist", path.to_string_lossy())
             }
             Some(path) => path,
             None => &*DEFAULT_CONFIG_PATH,

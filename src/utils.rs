@@ -48,7 +48,7 @@ pub fn timestamp_now() -> i64 {
 pub fn timestamp_from_date(date: &str) -> anyhow::Result<i64> {
     let timestamp = date
         .parse::<NaiveDate>()
-        .map_err(|_| anyhow!("date must be in format YYYY-MM-DDD"))?
+        .map_err(|_| anyhow!("date must be in format YYYY-MM-DD"))?
         .and_hms_opt(0, 0, 0)
         .ok_or(anyhow!("date is not valid"))?
         .and_local_timezone(Local::now().timezone())
