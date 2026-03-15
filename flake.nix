@@ -1,34 +1,42 @@
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
   };
 
   outputs =
+    { self, nixpkgs }:
+    let
+      forAllSystems = nixpkgs.lib.genAttrs [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
+    in
     {
-      self,
-      nixpkgs,
-      flake-utils,
-      ...
-    }:
-    flake-utils.lib.eachDefaultSystem (
-      system:
-      let
-        pkgs = nixpkgs.legacyPackages.${system};
-      in
-      {
-        devShells.default = pkgs.mkShell {
-          packages = [
-            pkgs.cargo
-            pkgs.cargo-audit
-            pkgs.clippy
-            pkgs.rust-analyzer
-            pkgs.rustc
-            pkgs.rustfmt
-          ];
-        };
+      devShells = forAllSystems (system: {
+        default =
+          let
+            pkgs = nixpkgs.legacyPackages.x86_64-linux;
+          in
+          pkgs.mkShell {
+            packages = [
+              pkgs.cargo
+              pkgs.cargo-audit
+              pkgs.clippy
+              pkgs.rust-analyzer
+              pkgs.rustc
+              pkgs.rustfmt
+            ];
+          };
+      });
 
-        packages = {
+      formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.nixfmt-tree);
+
+      packages = forAllSystems (
+        system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+        in
+        {
           default = self.packages.${system}.miko;
           miko = pkgs.rustPlatform.buildRustPackage {
             pname = "miko";
@@ -59,9 +67,7 @@
                 --fish <(_MIKO_GENERATE_COMPLETION=fish $out/bin/miko _)
             '';
           };
-        };
-
-        formatter = pkgs.nixfmt-rfc-style;
-      }
-    );
+        }
+      );
+    };
 }
