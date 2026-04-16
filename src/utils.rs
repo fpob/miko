@@ -2,7 +2,6 @@ use anyhow::{anyhow, bail};
 use chrono::{Local, NaiveDate};
 use ed2k::Ed2kRed;
 use ed2k::digest::Digest;
-use regex_macro::regex;
 use std::fs::{self, File};
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
@@ -26,14 +25,15 @@ pub fn file_ed2k<P: AsRef<Path>>(path: P) -> anyhow::Result<String> {
     Ok(format!("{digest:x}"))
 }
 
-/// Sanitize string to be a valid file name.
+/// Sanitize string to be a valid file name. Also replaces whitespaces with a single space.
 pub fn sanitize_filename(filename: &str) -> String {
-    // Replace all `/` with `-`
-    let filename = filename.replace('/', "-");
-    // Replace leading `.` with `_`.
-    let filename = regex!(r"^\.").replace_all(&filename, "_");
-    // Replace multiple whitespaces with a single space.
-    let filename = regex!(r"\s+").replace_all(&filename, " ");
+    let mut filename = filename.replace('/', "-");
+
+    if filename.starts_with(".") {
+        filename.replace_range(..1, "_");
+    }
+
+    filename = filename.split_whitespace().collect::<Vec<_>>().join(" ");
 
     filename.to_string()
 }

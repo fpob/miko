@@ -19,8 +19,6 @@ flate2 = "1.0.30"
 inquire = "0.7.5"
 itertools = "0.13.0"
 md5 = "0.7.0"
-regex = { version = "1.12.3", features = ["unicode"] }
-regex-macro = "0.3.0"
 serde = { version = "1.0.210", features = ["derive"] }
 subst = "0.3.5"
 thiserror = "1.0.64"
