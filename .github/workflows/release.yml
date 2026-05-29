@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '**'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Create GitHub release
+        run: gh release create --repo ${{ github.repository }} ${{ github.ref_name }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Update tag "stable"
+        uses: rickstaa/action-create-tag@v1
+        with:
+          tag: stable
+          force_push_tag: true
+
+  build:
+    needs: release
+
+    env:
+      BUILD_CMD: cargo
+
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            use-cross: true
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            use-cross: true
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+            use-cross: true
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install cross
+        if: matrix.use-cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
+      - name: Use cross
+        if: matrix.use-cross
+        run: echo "BUILD_CMD=cross" >> $GITHUB_ENV
+
+      - name: Build
+        run: $BUILD_CMD build --release --locked --target ${{ matrix.target }}
+
+      - name: Upload to release
+        run: |
+          mv target/${{ matrix.target }}/release/miko miko-${{ matrix.target }}
+          gh release upload --repo ${{ github.repository }} ${{ github.ref_name }} \
+            miko-${{ matrix.target }}
+        env:
+          GH_TOKEN: ${{ github.token }}
