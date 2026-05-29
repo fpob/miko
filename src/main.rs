@@ -26,6 +26,7 @@ static DEFAULT_CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
         .expect("got the default config path")
 });
 
+/// AniDB client for adding files to mylist.
 #[derive(Parser)]
 #[command(max_term_width = 100)]
 struct Cli {
@@ -34,7 +35,7 @@ struct Cli {
         long,
         env = "MIKO_CONFIG",
         long_help = format!("Path to the TOML config file.\n\n\
-            Available options:\n\
+            The following options are valid and their meaning is the same as on the CLI:\n\
             - username\n\
             - password\n\
             - encrypt\n\
@@ -43,29 +44,32 @@ struct Cli {
             *DEFAULT_CONFIG_PATH)
     )]
     config: Option<PathBuf>,
+    /// AniDB username: prompted if not provided via CLI or config.
     #[arg(long)]
     username: Option<String>,
+    /// AniDB password: prompted if not provided via CLI or config.
     #[arg(long)]
     password: Option<String>,
+    /// Optional AniDB API key for encryption: configured in your account settings.
     #[arg(long)]
     encrypt: Option<String>,
     /// Mark files as watched.
     #[arg(short, long, default_value_t = false)]
     watched: bool,
-    /// Mark files as watched and set watched date to the specified value.
+    /// Mark files as watched and set the watched date to the specified value (YYYY-MM-DD format).
     #[arg(short = 'W', long)]
     watched_date: Option<String>,
-    /// Set file state to deleted.
+    /// Set file state to deleted (default state is `on HDD`).
     #[arg(short, long, default_value_t = false)]
     deleted: bool,
-    /// If file already exists in mylist, edit watched state, date and mylist state (on HDD or
-    /// deleted).
+    /// If file already exists in mylist, edit watched state, watched date and mylist state (on HDD
+    /// or deleted).
     #[arg(short, long, default_value_t = false)]
     edit: bool,
     /// Rename files.
     #[arg(short, long, default_value_t = false)]
     rename: bool,
-    /// Format for renaming files (see more with '--help').
+    /// Format for renaming files.
     #[arg(
         long,
         long_help = format!("Format for renaming files.\n\n\
