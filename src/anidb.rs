@@ -318,7 +318,7 @@ fn encrypt(buf: &[u8], key: &[u8; 16]) -> Vec<u8> {
         })
         .collect();
 
-    if buf.len() % 16 == 0 {
+    if buf.len().is_multiple_of(16) {
         let mut block: GenericArray<_, U16> = GenericArray::default();
         Pkcs7::pad(&mut block, 0);
         blocks.push(block);
@@ -330,7 +330,7 @@ fn encrypt(buf: &[u8], key: &[u8; 16]) -> Vec<u8> {
 }
 
 fn decrypt(buf: &[u8], key: &[u8; 16]) -> anyhow::Result<Vec<u8>> {
-    if buf.len() % 16 != 0 {
+    if !buf.len().is_multiple_of(16) {
         bail!("failed to decrypt");
     }
 
